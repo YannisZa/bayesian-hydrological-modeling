@@ -1,2 +1,4 @@
+*.nc
+
 **/uoapi
 **/hydrology-models
