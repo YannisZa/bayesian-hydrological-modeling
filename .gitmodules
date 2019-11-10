@@ -1,0 +1,3 @@
+[submodule "uoapi"]
+	path = uoapi
+	url = https://github.com/urbanobservatory/uo-pythonapi
