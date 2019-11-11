@@ -6,3 +6,5 @@ ipykernel
 cython
 fiona
 shapely
+xarray>=0.12.0
+netCDF4
