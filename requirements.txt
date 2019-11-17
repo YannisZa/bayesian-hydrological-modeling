@@ -8,3 +8,6 @@ fiona
 shapely
 xarray>=0.12.0
 netCDF4
+scipy
+matplotlib
+sympy
