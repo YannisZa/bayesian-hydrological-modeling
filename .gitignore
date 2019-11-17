@@ -1,4 +1,6 @@
 *.nc
+*.csv
+
 
 **/uoapi
 **/hydrology-models
