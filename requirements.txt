@@ -11,3 +11,5 @@ netCDF4
 scipy
 matplotlib
 sympy
+tqdm
+argparse
