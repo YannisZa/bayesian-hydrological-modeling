@@ -25,9 +25,9 @@ parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'hymo
 parser.add_argument("-c", "--cmax",nargs='?',type=float,default = 600.0,
                     help="maximum soil water storage in length units")
 parser.add_argument("-b", "--betak",nargs='?',type=float,default = 0.3,
-                    help="parameters that quantifies variability of the soil water storage over the catchment")
+                    help="shape factor of the main soil-water storage tank that represents the degree of spatial variability of the soil-moisture capacity within the catchment")
 parser.add_argument("-al", "--alfa",nargs='?',type=float,default = 0.4,
-                    help="parameter that controls water contribution to fast runoff (between 0 and 1)")
+                    help="factor distributing flow between two series of reservoirs")
 parser.add_argument("-kf", "--kfast",nargs='?',type=float,default = 10.0,
                     help="fast runoff: constant reaction factor or response factor with unit T (must be positive)")
 parser.add_argument("-ks", "--kslow",nargs='?',type=float,default = 10.0,
