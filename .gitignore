@@ -1,6 +1,7 @@
 *.nc
 *.csv
+*.pyc
 
-
+**/libgpuarray
 **/uoapi
 **/hydrology-models
