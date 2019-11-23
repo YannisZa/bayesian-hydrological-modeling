@@ -13,3 +13,5 @@ matplotlib
 sympy
 tqdm
 argparse
+pymc3
+Theano
