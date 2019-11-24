@@ -17,11 +17,11 @@ parser.add_argument("--no-simulate",dest='simulate', action='store_false',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
 parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'synthetic/rainfall_evapotranspiration_syn.csv',
                     help="filename of input dataframe (must end with .csv)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'linear_reservoir_simulation.csv',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/linear_reservoir_simulation.csv',
                     help="filename of output dataframe (must end with .csv)")
 parser.add_argument("-k", "--k",nargs='?',type=float,default = 10.0,
                     help="constant reaction factor or response factor with unit T (must be positive)")
-parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.0,
+parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.01,
                     help="value of discharge (q) at time 0 (must be positive)")
 parser.add_argument("-s", "--sigma_noise",nargs='?',type=float,default = 0.01,
                     help="Standard deviation of white Gaussian noise N(0,s^2) to be added to discharge ")
@@ -67,7 +67,7 @@ if simulate:
     et[zero_et_days] = 0
 
     # Compute
-    nr = [rft - ett for rft, ett in zip(rf, et)]
+    nr = [max(rft - ett,0.0001) for rft, ett in zip(rf, et)]
 
 else:
     print('Reading input data')
@@ -75,7 +75,7 @@ else:
     rf = df['rainfall'].values.tolist()
     et = df['evapotranspiration'].values.tolist()
     # Compute
-    nr = [rft - ett for rft, ett in zip(rf, et)]
+    nr = [max(rft - ett,0.0001) for rft, ett in zip(rf, et)]
 
 n = len(nr)
 
@@ -92,12 +92,13 @@ def linear_reservoir_model(q,time,nrint):
 
 # Solve ODE
 q = odeint(linear_reservoir_model,q0,time,args=(nr_int,))
-q_flat = [max(item,0) for sublist in q for item in sublist]
+q_flat = [max(item,1e-10) for sublist in q for item in sublist]
 
 # Generate random errors
 error = np.random.normal(0,sigma_noise,len(q_flat))
 # Add Gaussian noise to discharge
-q_flat = [max(q+e,0) for q,e in zip(q_flat,error)]
+#q_flat = [max(q+e,1e-10) for q,e in zip(q_flat,error)]
+q_flat = [q for q,e in zip(q_flat,error)]
 
 ''' Export data to file '''
 
