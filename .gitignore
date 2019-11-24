@@ -1,6 +1,7 @@
 *.nc
 *.csv
 *.pyc
+*.pickle
 
 **/libgpuarray
 **/uoapi
