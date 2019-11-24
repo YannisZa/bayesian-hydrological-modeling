@@ -29,10 +29,10 @@ class ODEop(theano.Op):
 
     def make_node(self, x):
         x = theano.tensor.as_tensor_variable(x)
-
         return theano.Apply(self, [x], [x.type()])
 
     def perform(self, node, inputs_storage, output_storage):
+        #inputs_storage_flat = [item for sublist in inputs_storage for item in sublist]
         x = inputs_storage[0]
         out = output_storage[0]
 
@@ -70,14 +70,18 @@ class solveCached(object):
 
 class Run(object):
 
-    def __init__(self, ode_model, times, n_params, n_outputs):
-        self.cached_solver = solveCached(ode_model, times, n_params + 0, n_outputs)
+    def __init__(self, ode_model, times, n_params, n_ivs, n_outputs):
+        self.cached_solver = solveCached(ode_model, times, n_params + n_ivs, n_outputs)
+        self._n_params = n_params
+        self._n_states = n_outputs
+        self._times = times
+
 
     def state(self,x):
         State, Sens = self.cached_solver(np.array(x,dtype=np.float64))
         self.cached_solver._cachedState, self.cached_solver._cachedSens, self.cached_solver._cachedParam = State, Sens, x
-        return State.reshape((2*len(State),))
+        return State.reshape((self._n_states*len(State),)) # CHANGED CODE HERE State.reshape((2*len(State),))
 
     def numpy_vsp(self,x, g):
-        numpy_sens = self.cached_solver(np.array(x,dtype=np.float64))[1].reshape((n_states*len(times),len(x)))
+        numpy_sens = self.cached_solver(np.array(x,dtype=np.float64))[1].reshape((self._n_states*len(self._times),len(x)))
         return numpy_sens.T.dot(g)
