@@ -116,7 +116,7 @@ with pm.Model() as LR_model:
 
 # Save trace as pickle
 with open(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename), 'wb') as buff:
-    pickle.dump(sample_trace, buff)
+    pickle.dump(trace_LR, buff)
 
 # Save results as csv
 results.to_csv(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename.replace('.pickle','.csv')), index = False)
