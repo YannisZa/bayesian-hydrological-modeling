@@ -42,9 +42,9 @@ class LinearReservoirStatisticalModel(object):
 
         @as_op(itypes=[tt.dscalar], otypes=[tt.dmatrix])
         def th_forward_lrmodel(param1):
-            params = [param1]
+            parameter_list = [param1]
 
-            th_states = self._ode_model.simulate(params)
+            th_states = self._ode_model.simulate(parameter_list)
             return th_states
 
         # Define the data matrix
@@ -64,8 +64,10 @@ class LinearReservoirStatisticalModel(object):
             # Compute likelihood
             Q_obs = pm.Lognormal('Q_obs', mu=pm.math.log(forward), sigma=sigma, observed=Q_sim)
 
-            # Initial points for each of the chains
+            # Fix random seed
             np.random.seed(params.randomseed)
+
+            # Initial points for each of the chains
             startsmc = [{'k':np.random.uniform(1e-3,params.kmax,1)} for _ in range(params.nchains)]
 
             # Sample posterior
