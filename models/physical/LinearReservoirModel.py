@@ -37,12 +37,12 @@ class LinearReservoirModel(object):
             return (nrint(time) - q) * (1./k)
 
         if sensitivities:
-            def jac(x):
+            def jac(k):
                 ret = np.zeros((self._n_states, self._n_states))
                 ret[0, 0] = (-1./k)
                 return ret
 
-            def dfdp(x,t,nrint):
+            def dfdp(x,t,k,nrint):
                 ret = np.zeros((self._n_states,
                                 self._n_odeparams + self._n_ivs))
                 ret[0, 0] = (-1./(k**2)) * (nrint(t) - x)
@@ -58,7 +58,7 @@ class LinearReservoirModel(object):
                 # print('dqdp',dqdp)
                 # print('dfdp',dfdp(q,t,nrint))
 
-                d_dqdp_dt = jac(q)*dqdp + dfdp(q,t,nrint) # CHANGED CODE HERE np.matmul(jac(q), dqdp) + dfdp(q,t,nrint)
+                d_dqdp_dt = jac(k)*dqdp + dfdp(q,t,k,nrint) # CHANGED CODE HERE np.matmul(jac(q), dqdp) + dfdp(q,t,nrint)
                 return np.concatenate((dqdt, d_dqdp_dt.reshape(-1)))
 
             y0 = np.zeros( (n_states*(n_odeparams+n_ivs)) + n_states ) # CHANGED CODE HERE 2*
@@ -72,7 +72,6 @@ class LinearReservoirModel(object):
             return values, dvalues_dp
 
         else:
-
             # Solve ODE
             q = odeint(r,q0,times,args=(k,nr_int),rtol=1e-6,atol=1e-5)
             q_flat = [item for sublist in q for item in sublist]

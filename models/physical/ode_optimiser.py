@@ -32,7 +32,6 @@ class ODEop(theano.Op):
         return theano.Apply(self, [x], [x.type()])
 
     def perform(self, node, inputs_storage, output_storage):
-        #inputs_storage_flat = [item for sublist in inputs_storage for item in sublist]
         x = inputs_storage[0]
         out = output_storage[0]
 

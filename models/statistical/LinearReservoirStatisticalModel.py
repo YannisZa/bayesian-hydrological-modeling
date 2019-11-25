@@ -73,8 +73,8 @@ class LinearReservoirStatisticalModel(object):
             # step = pm.Metropolis()
 
             # Draw the specified number of samples
-            # advi+adapt_diag
-            discharge_trace = pm.sample(draws=params.nsamples, chains=params.nchains, tune=params.ntune, init='jitter+adapt_diag')
+            # jitter+adapt_diag
+            discharge_trace = pm.sample(n_init=params.nsamples,init='advi+adapt_diag')
 
         print(discharge_trace['diverging'].sum())
 
