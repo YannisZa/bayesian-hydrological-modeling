@@ -29,13 +29,13 @@ parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 10.0,
 parser.add_argument("-mq", "--muq",nargs='?',type=float,default = math.log(0.1),
                     help="q0 is the value of discharge at time 0 (must be positive) \
                     q0 ~ LogNormal(log(muq),log(sdq^2)), muq is the prior mean")
-parser.add_argument("-sq", "--sdq",nargs='?',type=float,default = 0.01,
+parser.add_argument("-sq", "--sdq",nargs='?',type=float,default = 2,
                     help="q0 is the value of discharge at time 0 (must be positive) \
                     q0 ~ LogNormal(log(muq),log(sdq^2)), sdq is the prior standard deviation")
 parser.add_argument("-ms", "--musigma",nargs='?',type=float,default = -1.0,
                     help="Standard deviation of Log-Gaussian noise to be added to discharge  \
                     s ~ LogNormal(log(musigma), log(sdsigma)^2), musigma is the prior mean")
-parser.add_argument("-ss", "--sdsigma",nargs='?',type=float,default = 1.0,
+parser.add_argument("-ss", "--sdsigma",nargs='?',type=float,default = 2.0,
                     help="Standard deviation of Log-Gaussian noise to be added to discharge  \
                     s ~ LogNormal(log(musigma), log(sdsigma)^2), sdsigma is the prior standard deviation")
 parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1500,
