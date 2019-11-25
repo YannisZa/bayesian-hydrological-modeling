@@ -109,7 +109,7 @@ with pm.Model() as LR_model:
     # Return results, too
     results = [pm.summary(trace_LR, ['k']),pm.summary(trace_LR, ['sigma'])]
     results = pd.concat(results)
-    true_params.append(noise_sigma)
+    true_params.append(args.sigma)
     results['True values'] = pd.Series(np.array(true_params), index=results.index)
     true_params.pop();
     print(results)
@@ -118,6 +118,8 @@ with pm.Model() as LR_model:
 with open(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename), 'wb') as buff:
     pickle.dump(sample_trace, buff)
 
+# Save results as csv
+results.to_csv(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename.replace('.pickle','.csv')), index = False)
 
 print('Posterior computed and saved to...')
-print(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename))
+print(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename.replace('.pickle','')))
