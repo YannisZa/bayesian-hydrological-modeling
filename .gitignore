@@ -2,6 +2,7 @@
 *.csv
 *.pyc
 *.pickle
+*.DS_Store
 
 **/libgpuarray
 **/uoapi
