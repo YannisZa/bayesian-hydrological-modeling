@@ -1,11 +1,14 @@
-from models.physical.ode_optimiser import ODEop,solveCached,Run
+from scipy.interpolate import interp1d
+from scipy.integrate import odeint
 from models.physical.LinearReservoirModel import LinearReservoirModel as LRM
+import theano.tensor as tt
+import theano
 import numpy as np
 import pymc3 as pm
-import theano
-from theano import *
-import theano.tensor as tt
 import math
+from theano.compile.ops import as_op
+from theano import *
+
 theano.config.exception_verbosity= 'high'
 theano.config.floatX = 'float64'
 print('Running on PyMC3 v{}'.format(pm.__version__))
@@ -16,66 +19,66 @@ n_ivs = 1
 
 class LinearReservoirStatisticalModel(object):
 
-    def __init__(self, net_rainfall_data):
-        self._nr = net_rainfall_data
+    def __init__(self, net_rainfall_data, params, seed=42):
+        self._times = range(0,len(net_rainfall_data))
+        self._nrint = interp1d(self._times, net_rainfall_data,fill_value="extrapolate",kind='slinear')
+        self._n_states = 1
+        self._n_times = len(net_rainfall_data)
+        self._ode_model = LRM(self._times,self._nrint,params.q0)
+
+    def _simulate_q(self, params):
+
+        # Simulate Q data
+        sim_data = self._ode_model.simulate([params.k])
+        # Fix random seed
+        np.random.seed(42)
+        # Add noise to Q
+        Q_sim = sim_data + np.random.randn(self._n_times,self._n_states)*params.sigma
+
+        return Q_sim
 
 
-    def run(self,q,params):
+    def _sample(self,q,Q_sim,params):
+
+        @as_op(itypes=[tt.dscalar], otypes=[tt.dmatrix])
+        def th_forward_lrmodel(param1):
+            params = [param1]
+
+            th_states = self._ode_model.simulate(params)
+            return th_states
 
         # Define the data matrix
         Q = np.vstack((q))
 
-        # print(Q.shape)
-
-        # Define times
-        times = np.arange(0,len(q))
-
-        # Instantiate Linear Reservoir model
-        lrm = LRM(n_states, n_odeparams, n_ivs, self._nr)
-
-        # Instantiate Run object
-        r = Run(lrm, times, n_states, n_ivs, n_odeparams)
-
-        # Now instantiate the theano custom ODE op
-        my_ODEop = ODEop(r.state,r.numpy_vsp)
-
-        with pm.Model() as lrs_model:
+        with pm.Model() as LR_model:
 
             # Priors for unknown model parameters
             k = pm.Uniform('k', lower=0.01, upper=params.kmax)
-            # k = pm.Lognormal('k', mu=params.kmax, sd=1)
 
             # Priors for initial conditions and noise level
-            q0 = pm.Lognormal('q0', mu=params.muq, sd=params.sdq)
-            sigma = pm.Lognormal('sigma', mu=params.musigma, sd=params.sdsigma, shape=1)
+            sigma = pm.HalfNormal('sigma', sd=params.sdsigma)
 
-            # Forward model
-            all_params = pm.math.stack([k,q0],axis=0)
-            ode_sol = my_ODEop(all_params)
-            forward = ode_sol.reshape(Q.shape)
+            # Compute forward model
+            forward = th_forward_lrmodel(k)
 
-            # Print ODE solution
-            # log_forward = pm.math.log(forward)
-            # log_forward_print = tt.printing.Print('log_forward')(log_forward.shape)
-            # tt.printing.Print('sigma')(sigma.shape)
-            # print(np.log(Q))
-            # print(Q)
+            # Compute likelihood
+            Q_obs = pm.Lognormal('Q_obs', mu=pm.math.log(forward), sigma=sigma, observed=Q_sim)
 
-            # Likelihood
-            Q_obs = pm.Lognormal('Q_obs', mu=pm.math.log(forward), sd=sigma, observed=Q)
-            # Q_obs_print = tt.printing.Print('Q_obs')(Q_obs)
+            # Initial points for each of the chains
+            np.random.seed(params.randomseed)
+            startsmc = [{'k':np.random.uniform(1e-3,params.kmax,1)} for _ in range(params.nchains)]
 
-            # for RV in lrs_model.basic_RVs:
-            #     print(RV.name, RV.logp(lrs_model.test_point))
-            print(lrs_model.check_test_point())
+            # Sample posterior
+            trace_LR = pm.sample(params.nsamples, progressbar=True, chains=params.nchains, start=startsmc, step=pm.SMC())
 
-            # # Using Metropolis Hastings Sampling
-            # step = pm.Metropolis()
+            return trace_LR
 
-            # Draw the specified number of samples
-            # jitter+adapt_diag
-            discharge_trace = pm.sample(n_init=params.nsamples,init='advi+adapt_diag')
+    def _print(self,trace):
 
-        print(discharge_trace['diverging'].sum())
+        results = [pm.summary(trace, ['k'])]
+        results = pd.concat(results)
+        true_params.append(noise_sigma)
+        results['True values'] = pd.Series(np.array(true_params), index=results.index)
+        true_params.pop();
 
-        return discharge_trace
+        print(results)
