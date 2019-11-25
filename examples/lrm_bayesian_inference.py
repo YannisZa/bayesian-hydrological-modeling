@@ -39,7 +39,7 @@ parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1000,
                     help="Number of posterior samples generated using choice of sampling method ")
 parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 500,
                     help="Number of chains in posterior samples generation")
-parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 111,
+parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 24,
                     help="Random seed to be fixed when generating posterior samples")
 args = parser.parse_args()
 
