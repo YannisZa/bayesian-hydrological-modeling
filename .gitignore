@@ -4,6 +4,8 @@
 *.pickle
 *.DS_Store
 
+.python-version
+
 **/libgpuarray
 **/uoapi
 **/hydrology-models
