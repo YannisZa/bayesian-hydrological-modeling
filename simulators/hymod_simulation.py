@@ -10,8 +10,20 @@ import argparse
 import random
 import json
 import math
+import sys
 import os
-#import matplotlib.pyplot as plt
+
+''' HYMOD model
+
+C(t)    :: water depth stored in unsaturated locations of the catchment at time t
+W(t)    :: volume of water stored in the catchment at time t
+E(t)    :: water losses by evapotranspiration
+
+ADD HERE...
+
+More information about equations please look at https://distart119.ing.unibo.it/albertonew/?q=node/58
+'''
+
 
 parser = argparse.ArgumentParser(description='Simulate discharge data using the linear reservoir model.')
 parser.add_argument("--simulate",dest='simulate', action='store_true',
@@ -20,7 +32,7 @@ parser.add_argument("--no-simulate",dest='simulate', action='store_false',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
 parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'synthetic/rainfall_evapotranspiration_syn.csv',
                     help="filename of input dataframe (must end with .csv)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'hymod_simulation.csv',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/hymod_simulation.csv',
                     help="filename of output dataframe (must end with .csv)")
 parser.add_argument("-c", "--cmax",nargs='?',type=float,default = 600.0,
                     help="maximum soil water storage in length units")
@@ -32,71 +44,57 @@ parser.add_argument("-kf", "--kfast",nargs='?',type=float,default = 10.0,
                     help="fast runoff: constant reaction factor or response factor with unit T (must be positive)")
 parser.add_argument("-ks", "--kslow",nargs='?',type=float,default = 10.0,
                     help="slow runoff: constant reaction factor or response factor with unit T (must be positive)")
-parser.add_argument("-m", "--m",nargs='?',type=int,default = 3,
-                    help="number of linear reservoirs to be cascaded")
+parser.add_argument("-nr", "--nreservoirs",nargs='?',type=int,default = 3,
+                    help="number of linear reservoirs for fast flow to be cascaded")
 parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.01,
                     help="value of discharge (q) at time 0 (must be positive)")
 parser.add_argument("-w", "--w0",nargs='?',type=float,default = 0.01,
                     help="value of water volume (w) at time 0 (must be positive)")
-parser.add_argument("-ar", "--area",nargs='?',type=float,default = 1000,
-                    help="area of catchment in m^2")
-parser.add_argument("-tdelta", "--tdelta",nargs='?',type=int,default = 3600,
-                    help="timestep to normalise time by to make the time units seconds")
-parser.add_argument("-s", "--sigma_noise",nargs='?',type=float,default = 0.05,
+parser.add_argument("-s", "--sigma",nargs='?',type=float,default = 0.05,
                     help="Standard deviation of white Gaussian noise N(0,s^2) to be added to discharge ")
-params = parser.parse_args()
+parser.add_argument("-a", "--catchment_area",nargs='?',type=float,default = 3600.0,
+                    help="Area of catchment (in m^2) to be multiplied with discharge")
+parser.add_argument("-t", "--tdelta",nargs='?',type=int,default = 1,
+                    help="timestep to normalise time by to make the time units seconds")
+parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 22,
+                    help="fixed random seed for generating noise")
+args = parser.parse_args()
+params = vars(args)
 
+# Get current working directory and project root directory
+cwd = os.getcwd()
+rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0])
+if not rd.endswith('fibe2-mini-project'):
+    rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0],'fibe2-mini-project')
 
-''' Store fixed parameters '''
-# Flag whether to simulate or use existing data
-simulate = params.simulate
-# Gaussian error noise
-sigma_noise = params.sigma_noise
+# Export model parameters
+with open(os.path.join(rd,'data','output',args.output_filename.replace('.csv','_true_parameters.json')), 'w') as f:
+    json.dump(params, f)
 
+print(json.dumps(params,indent=2))
 
-# Fixed parameters
-cmax = params.cmax     # Maximum soil water storage
-betak = params.betak   # Quantifies variability of the soil water storage over the catchment
-alfa = params.alfa      # Controls water contribution to fast runoff
-kslow = params.kslow     # Constant reaction factor or response factor for slow runoff in linear reservoir
-kfast = params.kfast     # Constant reaction factor or response factor for fast runoff in cascade of linear reservoirs
-m = params.m           # Number of linear reservoirs fast runoff will go through
 
 ''' Store initial conditions '''
-q0 = params.q0
-w0 = params.w0
-area = params.area # in square meters
-tdelta = params.tdelta # num of seconds in day/hour etc. depending on data frequency
 
 # Set conversion factor
-fatconv = (1. / 1000.0)/tdelta * area
+fatconv = (1. / 1000.0)/args.tdelta * args.catchment_area
 
 # Initial water volume stored in catchment
-w2 = w0
+w2 = args.q0
 c1 = 0.0
 c2 = 0.0
 ffast = 0.0
 fslow = 0.0
-wslow = q0 / ((1./params.kslow) * fatconv)
-wfast = np.zeros(params.m)
+wslow = args.q0 / ((1./args.kslow) * fatconv)
+wfast = np.zeros(args.nreservoirs)
 
-print(json.dumps(vars(params),indent=2))
 
-''' HYMOD model
-
-C(t)    :: water depth stored in unsaturated locations of the catchment at time t
-W(t)    :: volume of water stored in the catchment at time t
-E(t)    :: water losses by evapotranspiration
-
-More information about equations please look at https://distart119.ing.unibo.it/albertonew/?q=node/58
-'''
-
-''' Obtain or generate net rainfall data '''
+''' Generate or read discharge data '''
 
 # Initilise empty discharge dataframe for each reservoir
 q_df = pd.DataFrame(columns=(['time','slow_discharge','fast_discharge','total_discharge']))
 
-if simulate:
+if args.simulate:
     print('Simulating input data')
     # Simulate rainfall and evapotranspiration data
     rf = np.concatenate((np.random.normal(3, 1, 100) , np.random.normal(3, 0.5, 100)))
@@ -114,7 +112,7 @@ if simulate:
 
 else:
     print('Reading input data')
-    df = pd.read_csv(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/input/',params.input_filename))
+    df = pd.read_csv(os.path.join(rd,'data','input',args.input_filename))
     rf = df['rainfall'].values.tolist()
     et = df['evapotranspiration'].values.tolist()
     # Compute
@@ -186,39 +184,39 @@ for t in tqdm(time):
     W[t] = w2
 
     ''' Compute excess precipitation and evaporation '''
-    temp1 = max( 0.0, 1 - W[t] * ((params.betak+1) / params.cmax))
-    c1 = params.cmax * (1 - temp1 ** (1 / (params.betak + 1) ))
-    c2 = min(c1 + nr[t], params.cmax)
+    temp1 = max( 0.0, 1 - W[t] * ((args.betak+1) / args.cmax))
+    c1 = args.cmax * (1 - temp1 ** (1 / (args.betak + 1) ))
+    c2 = min(c1 + nr[t], args.cmax)
 
     # Compute surface runoff 1
-    ER1[t] = max((nr[t] - cmax + c1),0.0)
+    ER1[t] = max((nr[t] - args.cmax + c1),0.0)
 
-    temp2 = max( (1 - C[t]/params.cmax), 0.0)
-    w2 = (params.cmax / (params.betak + 1)) * (1 - temp2 ** (params.betak + 1) )
+    temp2 = max( (1 - C[t]/args.cmax), 0.0)
+    w2 = (args.cmax / (args.betak + 1)) * (1 - temp2 ** (args.betak + 1) )
 
     # Compute surface runoff 2
     ER2[t] = max( (c2 - c1) - (w2 - W[t]), 0.0)
 
     # Compute water losses by evapotranspiration
-    E[t] = (1. - (((params.cmax - c2) / (params.betak + 1.)) / (params.cmax / (params.betak + 1.)))) * et[t]
+    E[t] = (1. - (((args.cmax - c2) / (args.betak + 1.)) / (args.cmax / (args.betak + 1.)))) * et[t]
 
     # Update water volume accounting for evapotranspiration losses
     w2 = max(w2 - E[t], 0.0)
 
     ''' Partition ffast and fslow into fast and slow flow component '''
-    ffast = params.alfa * ER2[t] + ER1[t]
-    fslow = (1.- params.alfa) * ER2[t]
+    ffast = args.alfa * ER2[t] + ER1[t]
+    fslow = (1.- args.alfa) * ER2[t]
 
     ''' Route slow flow component with single linear reservoir (kslow) '''
-    wslow = (1. - 1./params.kslow) * (wslow + fslow)
+    wslow = (1. - 1./args.kslow) * (wslow + fslow)
     # Store slow discharge at time t
-    qslow = ((1./params.kslow) / (1. - 1./params.kslow)) * wslow
+    qslow = ((1./args.kslow) / (1. - 1./args.kslow)) * wslow
 
     ''' Route fast flow component with m linear reservoirs (kfast) '''
     qfast = 0.0
-    for j in range(params.m):
-        wfast[j] = (1.- 1./params.kfast) * wfast[j] + (1. - 1./params.kfast) * ffast
-        qfast = (1./params.kfast / (1.- 1./params.kfast)) * wfast[j]
+    for j in range(args.nreservoirs):
+        wfast[j] = (1.- 1./args.kfast) * wfast[j] + (1. - 1./args.kfast) * ffast
+        qfast = (1./args.kfast / (1.- 1./args.kfast)) * wfast[j]
         ffast = qfast
 
     ''' Compute fast, slow and total flow for time t '''
@@ -226,37 +224,18 @@ for t in tqdm(time):
     Qfast[t] = qfast * fatconv
     Q[t] = Qslow[t] + Qfast[t]
 
-# ''' Route slow flow component with single linear reservoir (kslow) '''
-# # Interpolate slow runoff
-# qslow = interp1d(time, nr,fill_value="extrapolate")
-# Qslow = linear_reservoir_simulation(q0,time,qslow,params.kslow)
-#
-# ''' Route fast flow component with m linear reservoirs (kfast) '''
-# qfast = interp1d(time, nr,fill_value="extrapolate")
-# Qfast = cascade_linear_reservoirs_simultation(q0,time,qfast,params.kfast)
-#
-#
-# ''' Compute fast, slow and total flow for time t '''
-# Q = np.multiply(Qslow,fatconv) + np.multiply(Qfast,fatconv)
 
-
-# Generate random errors
-error = np.random.normal(0,sigma_noise,len(Q))
+# Fix random seed
+np.random.seed(args.randomseed)
 # Add Gaussian noise to discharge
-Q = [max(q+e,0) for q,e in zip(Q,error)]
+Q_sim = np.asarray(Q).reshape(n,1) + np.random.randn(n,1)*args.sigma
 
 # Populate q_df with discharges
 q_df.loc[:,'fast_discharge'] = Qfast
 q_df.loc[:,'slow_discharge'] = Qslow
-q_df.loc[:,'total_discharge'] = Q
-
-print(q_df.head(10))
+q_df.loc[:,'discharge'] = Q.reshape(n,)
 
 
 ''' Export data to file '''
-
-# Export discharge dataframe to file
-filename = os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',params.output_filename)
-q_df.to_csv(filename,index=False)
-
+q_df.to_csv(os.path.join(rd,'data','output',args.output_filename),index=False)
 print('Done!...')

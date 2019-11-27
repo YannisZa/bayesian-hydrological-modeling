@@ -9,44 +9,8 @@ import argparse
 import random
 import json
 import math
+import sys
 import os
-#import matplotlib.pyplot as plt
-
-parser = argparse.ArgumentParser(description='Simulate discharge data using the non-linear reservoir model.')
-parser.add_argument("--simulate",dest='simulate', action='store_true',
-                    help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to true")
-parser.add_argument("--no-simulate",dest='simulate', action='store_false',
-                    help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
-parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'synthetic/rainfall_evapotranspiration_syn.csv',
-                    help="filename of input dataframe (must end with .csv)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'nonlinear_reservoir_simulation.csv',
-                    help="filename of output dataframe (must end with .csv)")
-parser.add_argument("-k", "--k",nargs='?',type=float,default = 10.0,
-                    help="constant reaction factor or response factor with unit T (must be positive)")
-parser.add_argument("-m", "--m",nargs='?',type=float,default = 0.3,
-                    help="store exponent (must be positive)")
-parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.01,
-                    help="value of discharge (q) at time 0 (must be positive)")
-parser.add_argument("-tdelta", "--tdelta",nargs='?',type=int,default = 3600,
-                    help="timestep to normalise time by to make the time units seconds")
-parser.add_argument("-s", "--sigma_noise",nargs='?',type=float,default = 0.05,
-                    help="Standard deviation of white Gaussian noise N(0,s^2) to be added to discharge ")
-args = parser.parse_args()
-
-# Flag whether to simulate or use existing data
-simulate = args.simulate
-
-# Fixed parameters
-m = args.m # store exponent :: - :: m > 0
-k = args.k # constant reaction factor or response factor :: Time :: k > 0
-
-q0 = args.q0 # Let Q(0) = 0 - Discharge at time zero is zero
-tdelta = args.tdelta # num of seconds in day/hour etc. depending on data frequency
-
-# Gaussian error noise
-sigma_noise = args.sigma_noise
-
-print(json.dumps(vars(args),indent=2))
 
 ''' Non-linear reservoir model
 
@@ -63,16 +27,61 @@ R(t) = P(t) - E_pt(t)
 
 '''
 
+parser = argparse.ArgumentParser(description='Simulate discharge data using the non-linear reservoir model.')
+parser.add_argument("--simulate",dest='simulate', action='store_true',
+                    help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to true")
+parser.add_argument("--no-simulate",dest='simulate', action='store_false',
+                    help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
+parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'synthetic/rainfall_evapotranspiration_syn.csv',
+                    help="filename of input dataframe (must end with .csv)")
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/nonlinear_reservoir_simulation.csv',
+                    help="filename of output dataframe (must end with .csv)")
+parser.add_argument("-k", "--k",nargs='?',type=float,default = 4.0,
+                    help="constant reaction factor or response factor with unit T (must be positive)")
+parser.add_argument("-m", "--m",nargs='?',type=float,default = 0.3,
+                    help="store exponent (must be positive)")
+parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.01,
+                    help="value of discharge (q) at time 0 (must be positive)")
+parser.add_argument("-s", "--sigma",nargs='?',type=float,default = 0.05,
+                    help="Standard deviation of white Gaussian noise N(0,s^2) to be added to discharge ")
+parser.add_argument("-a", "--catchment_area",nargs='?',type=float,default = 3600.0,
+                    help="Area of catchment (in m^2) to be multiplied with discharge")
+parser.add_argument("-t", "--tdelta",nargs='?',type=int,default = 1,
+                    help="timestep to normalise time by to make the time units seconds")
+parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 22,
+                    help="fixed random seed for generating noise")
+args = parser.parse_args()
+params = vars(args)
+
+# Get current working directory and project root directory
+cwd = os.getcwd()
+rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0])
+if not rd.endswith('fibe2-mini-project'):
+    rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0],'fibe2-mini-project')
+
+# Export model parameters
+with open(os.path.join(rd,'data','output',args.output_filename.replace('.csv','_true_parameters.json')), 'w') as f:
+    json.dump(params, f)
+
+
+print(json.dumps(params,indent=2))
+
+
+''' Generate or read discharge data '''
+
+# Set conversion factor
+fatconv = 1. / 1000.0 / args.tdelta * args.catchment_area
+
 # Compute derived parameters
-a = m*(1./k)**(1./m)
-b = (m-1)/m
+a = args.m*(1./args.k)**(1./args.m)
+b = (args.m-1)/args.m
 
 # Raise ValueError if m is negative
-if m <= 0:
-    print(f'Number of reservoirs {m} has to be positive.')
+if args.m <= 0:
+    print(f'Number of reservoirs {args.m} has to be positive.')
     raise ValueError('Please choose another value for m.')
 
-if simulate:
+if args.simulate:
     print('Simulating input data')
     # Simulate rainfall and evapotranspiration data
     rf = np.concatenate((np.random.normal(3, 1, 100) , np.random.normal(3, 0.5, 100)))
@@ -90,41 +99,38 @@ if simulate:
 
 else:
     print('Reading input data')
-    df = pd.read_csv(os.path.join('/Users/Yannis/code/fibe2-mini-project/data/input/',args.input_filename))
+    df = pd.read_csv(os.path.join(rd,'data','input',args.input_filename))
     rf = df['rainfall'].values.tolist()
     et = df['evapotranspiration'].values.tolist()
     # Compute
-    nr = [rft - ett for rft, ett in zip(rf, et)]
+    nr = [max(rft - ett,0.0001) for rft, ett in zip(rf, et)]
 
+# Number of timesteps
 n = len(nr)
 
 # time points
 time = range(0,n)
-#t = np.linspace(start=0,stop=100000,num=n_samples)#range(0,n_samples)
 
 # Interpolate net_rainfall
 nr_int = interp1d(time, nr,fill_value="extrapolate",kind='slinear')
 
 # Define model
 def nonlinear_reservoir_model(q,time,nrint):
-    return ( a * ( nrint(time) - max(q,0.01) ) * (max(q,0.01)**b) )
+    return ( a * ( nrint(time) - q) * (q**b) )
 
 
 # Solve ODE
-q = odeint(nonlinear_reservoir_model,q0,time,args=(nr_int,))
+q = odeint(nonlinear_reservoir_model,args.q0,time,args=(nr_int,))
 # Flatten q
-q_flat = [max(item,0.0) for sublist in q for item in sublist]
+q_flat = [item * fatconv for sublist in q for item in sublist]
 
-# Generate random errors
-error = np.random.normal(0,sigma_noise,len(q_flat))
+# Fix random seed
+np.random.seed(args.randomseed)
 # Add Gaussian noise to discharge
-q_flat = [max(q+e,0) for q,e in zip(q_flat,error)]
-
+Q_sim = np.asarray(q_flat).reshape(n,1) + np.random.randn(n,1)*args.sigma
 
 ''' Export data to file '''
-
-filename = os.path.join('/Users/Yannis/code/fibe2-mini-project/data/output/',args.output_filename)
-df = pd.DataFrame(list(zip(time,rf,et,nr,q_flat)), columns =['time', 'rainfall','evapotranspiration','net_rainfall', 'discharge_approx'])
-df.to_csv(filename,index=False)
+df = pd.DataFrame(list(zip(time,rf,et,nr,Q_sim.reshape(n,))), columns =['time', 'rainfall','evapotranspiration','net_rainfall', 'discharge'])
+df.to_csv(os.path.join(rd,'data','output',args.output_filename),index=False)
 
 print('Done!...')
