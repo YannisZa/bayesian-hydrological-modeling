@@ -1,5 +1,7 @@
 *.nc
 *.csv
+*.ipynb
+*.json
 *.pyc
 *.pickle
 *.DS_Store
