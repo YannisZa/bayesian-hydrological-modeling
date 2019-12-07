@@ -17,15 +17,19 @@ class LinearReservoirModel(object):
             self._nrint = interp1d(self._times, net_rainfall_data,fill_value="extrapolate",kind='slinear')
             self._n_times = len(net_rainfall_data)
             self._n_states = 1
-            
-    def _simulate(self, parameters, times):
+
+    def _simulate(self, parameters, times, factor):
         k = float(parameters[0])
 
         def rhs(y, t, p):
-            return (self._nrint(t) - y) * (1./k)
+            return (max(self._nrint(t),0.0001) - y) * (1./k)
+            # return (self._nrint(t) - y) * (1./k)
 
         values = odeint(rhs, self._q0, self._times, (parameters,),rtol=1e-6,atol=1e-6)
-        return values
+        nonzero_values = np.array([[max(0,qsim[0])*factor] for qsim in values]).reshape(len(values),1)
 
-    def simulate(self, x):
-        return self._simulate(x, self._times)
+        # return values
+        return nonzero_values
+
+    def simulate(self, x, factor):
+        return self._simulate(x, self._times, factor)
