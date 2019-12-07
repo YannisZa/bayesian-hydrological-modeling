@@ -17,17 +17,19 @@ class NonLinearReservoirModel(object):
             self._n_times = len(net_rainfall_data)
             self._n_states = 1
 
-    def _simulate(self, parameters, times):
+    def _simulate(self, parameters, times, factor):
         k,m = [float(x) for x in parameters]
 
         a = m*(1./k)**(1./m)
         b = (m-1)/m
 
-        def rhs(y, t, p):
-            return ( a * ( nrint(time) - y) * (y**b) )
+        def rhs(q, t, p):
+            return ( a * ( max(self._nrint(t),0.0001) - q) * (q**b) )
 
         values = odeint(rhs, self._q0, self._times, (parameters,),rtol=1e-6,atol=1e-6)
+        nonzero_values = np.array([[max(0,qsim[0])*factor] for qsim in values]).reshape(len(values),1)
+
         return values
 
-    def simulate(self, x):
-        return self._simulate(x, self._times)
+    def simulate(self, x, factor):
+        return self._simulate(x, self._times,factor)
