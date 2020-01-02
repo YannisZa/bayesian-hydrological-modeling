@@ -92,7 +92,8 @@ class HymodModel(object):
             Qfast[t] = qfast * true_arguments.fatconv
             Q[t] = Qslow[t] + Qfast[t]
 
-        return Q.reshape(n,1)
+        return np.array([[max(0.0001,qsim)] for qsim in Q]).reshape(len(Q),1)
+        #Q.reshape(n,1)
 
     def simulate(self, params, true_args):
         return self._simulate(params, self._times, true_args)
