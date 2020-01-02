@@ -38,7 +38,7 @@ parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simu
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
 parser.add_argument("-k", "--k",nargs='?',type=float,default = 1.1,
                     help="constant reaction factor or response factor with unit T (must be positive) (default: %(default)s)")
-parser.add_argument("-m", "--m",nargs='?',type=float,default = 0.7,
+parser.add_argument("-m", "--m",nargs='?',type=float,default = 1.5,
                     help="store exponent (must be positive)")
 parser.add_argument("-q", "--q0",nargs='?',type=float,default = 0.01,
                     help="value of discharge (q) at time 0 (must be positive)")
@@ -135,7 +135,7 @@ q_flat = [q_flat[i] for i in range(0,n)]
 np.random.seed(args.randomseed)
 # Add Gaussian noise to discharge
 Q_sim = np.asarray(q_flat).reshape(n,1) + np.random.randn(n,1)*args.sigma
-Q_sim = [max(0.0,qsim[0]) for qsim in Q_sim]
+Q_sim = [max(minvalue,qsim[0]) for qsim in Q_sim]
 
 ''' Export data to file '''
 df = pd.DataFrame(list(zip(time,rf,et,nr,Q_sim)), columns =['time', 'rainfall','evapotranspiration','net_rainfall', 'discharge'])

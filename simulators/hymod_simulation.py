@@ -30,9 +30,9 @@ parser.add_argument("--simulate",dest='simulate', action='store_true',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to true")
 parser.add_argument("--no-simulate",dest='simulate', action='store_false',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
-parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'raw/road_data.csv',
+parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'raw/road_data_monthly.csv',
                     help="filename of input dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/hymod_simulation.csv',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/hymod_simulation_monthly.csv',
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
 parser.add_argument("-c", "--cmax",nargs='?',type=float,default = 300.0,
                     help="maximum soil water storage in length units (default: %(default)s)")
@@ -40,9 +40,9 @@ parser.add_argument("-b", "--betak",nargs='?',type=float,default = 0.3,
                     help="shape factor of the main soil-water storage tank that represents the degree of spatial variability of the soil-moisture capacity within the catchment")
 parser.add_argument("-al", "--alfa",nargs='?',type=float,default = 0.4,
                     help="factor distributing flow between two series of reservoirs (default: %(default)s)")
-parser.add_argument("-kf", "--kfast",nargs='?',type=float,default = 0.6,
+parser.add_argument("-kf", "--kfast",nargs='?',type=float,default = 1.1,
                     help="fast runoff: constant reaction factor or response factor with unit T (must be positive) (default: %(default)s)")
-parser.add_argument("-ks", "--kslow",nargs='?',type=float,default = 1.2,
+parser.add_argument("-ks", "--kslow",nargs='?',type=float,default = 1.5,
                     help="slow runoff: constant reaction factor or response factor with unit T (must be positive) (default: %(default)s)")
 parser.add_argument("-nr", "--nreservoirs",nargs='?',type=int,default = 3,
                     help="number of linear reservoirs for fast flow to be cascaded (default: %(default)s)")
@@ -118,6 +118,7 @@ else:
     df = pd.read_csv(os.path.join(rd,'data','input',args.input_filename))
     rf = df['rainfall'].values.tolist()
     et = df['evapotranspiration'].values.tolist()
+    date = df['date'].values.tolist()
     # Compute
     nr = [max(rft - ett,minvalue) for rft, ett in zip(rf, et)]
 
@@ -129,6 +130,7 @@ time = range(0,n)
 
 # Store time and net rainfall to dataframe
 q_df.loc[:,'time'] = time
+q_df.loc[:,'date'] = date
 q_df.loc[:,'rainfall'] = nr
 q_df.loc[:,'evapotranspiration'] = et
 
@@ -232,9 +234,9 @@ for t in tqdm(time):
 np.random.seed(args.randomseed)
 # Add Gaussian noise to discharge
 Q_sim = np.asarray(Q).reshape(n,1) + np.random.randn(n,1)*args.sigma
-Q_sim = [max(0.0,qsim[0]) for qsim in Q_sim]
-Qfast = [max(0.0,qsim) for qsim in Qfast]
-Qslow = [max(0.0,qsim) for qsim in Qslow]
+Q_sim = [max(minvalue,qsim[0]) for qsim in Q_sim]
+Qfast = [max(minvalue,qsim) for qsim in Qfast]
+Qslow = [max(minvalue,qsim) for qsim in Qslow]
 
 # Populate q_df with discharges
 q_df.loc[:,'fast_discharge'] = Qfast
