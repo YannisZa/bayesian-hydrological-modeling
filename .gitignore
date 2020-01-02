@@ -5,6 +5,7 @@
 *.pyc
 *.pickle
 *.DS_Store
+*.png
 
 .python-version
 
