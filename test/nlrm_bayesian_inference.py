@@ -25,7 +25,7 @@ import resource
 
 def print_model_specification(args):
     print(f'k ~ Uniform(0.01,{args.kmax})')
-    print(f'm ~ Uniform(0.01,{args.mmax})')
+    print(f'm ~ Uniform(1.01,{args.mmax})')
     print(f'sigma ~ Gamma({args.alpha},{args.beta})')
     print('Q(t) ~ Normal(Q(q0,t),sigma)')
     print()
@@ -36,21 +36,21 @@ parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'simul
                     help="filename of input dataframe (must end with .csv) (default: %(default)s)")
 parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'posterior_samples/nonlinear_reservoir_samples.pickle',
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 10.0,
+parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 5.0,
                     help="k is constant reaction factor or response factor with unit T (must be positive) \
                         k ~ Uniform(0.01,kmax) (default: %(default)s)")
-parser.add_argument("-mmax", "--mmax",nargs='?',type=float,default = 10.0,
+parser.add_argument("-mmax", "--mmax",nargs='?',type=float,default = 2.0,
                     help="m is constant reaction factor or response factor with unit T (must be positive) \
-                        m ~ Uniform(0.01,mmax) (default: %(default)s)")
+                        m ~ Uniform(1.01,mmax) (default: %(default)s)")
 parser.add_argument("-a", "--alpha",nargs='?',type=float,default = 2.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), alpha is the shape factor (default: %(default)s)")
-parser.add_argument("-b", "--beta",nargs='?',type=float,default = 40.0,
+parser.add_argument("-b", "--beta",nargs='?',type=float,default = 4.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), beta is the rate factor (default: %(default)s)")
-parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1000,
+parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1500,
                     help="Number of posterior samples generated using choice of sampling method (default: %(default)s)")
-parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 100,
+parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 200,
                     help="Number of chains in posterior samples generation (default: %(default)s)")
 parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 24,
                     help="Random seed to be fixed when generating posterior samples (default: %(default)s)")
@@ -71,6 +71,7 @@ print(json.dumps(params,indent=2))
 print_model_specification(args)
 print()
 
+# sys.exit()
 
 '''  Import simulated data '''
 
@@ -109,11 +110,7 @@ def th_forward_model(param1,param2):
     return th_states
 
 # Initialise dataframe to store parameter posteriors
-results = pd.DataFrame(columns=['current_model','true_model','parameter','log_marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5'])
-
-# Initialise empty model and trace dictionaries
-models = {}
-traces = {}
+results = pd.DataFrame(columns=['current_model','true_model','parameter','marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5'])
 
 # Loop over simulated datasets and compute marginal
 for mi in tqdm(model_discharges.keys()):
@@ -124,7 +121,7 @@ for mi in tqdm(model_discharges.keys()):
 
         # Priors for unknown model parameters
         k = pm.Uniform('k', lower=0.01, upper=args.kmax)
-        m = pm.Uniform('m', lower=0.01, upper=args.mmax)
+        m = pm.Uniform('m', lower=1.01, upper=args.mmax)
 
         # Priors for initial conditions and noise level
         sigma = pm.Gamma('sigma',alpha=args.alpha,beta=args.beta)
@@ -139,23 +136,18 @@ for mi in tqdm(model_discharges.keys()):
         np.random.seed(args.randomseed)
 
         # Initial points for each of the chains
-        startsmc = [{'k':np.random.uniform(0.01,args.kmax,1),'m':np.random.uniform(0.01,args.mmax,1)} for _ in range(args.nchains)]
+        startsmc = [{'k':np.random.uniform(0.01,args.kmax,1),'m':np.random.uniform(1.01,args.mmax,1)} for _ in range(args.nchains)]
 
         # Sample posterior
         trace_NLR = pm.sample(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc, step=pm.SMC())
 
-        # Compute negative log marginal likelihood
-        log_ml = -np.log(NLR_model.marginal_likelihood)
+        # Compute negative marginal likelihood
+        ml = NLR_model.marginal_likelihood #-np.log(NLR_model.marginal_likelihood)
 
         # Append to results
-        vals = np.append(np.array(['NLRM',mi,'k',log_ml]),pm.summary(trace_NLR, ['k']).values[0])
-        results = results.append(dict(zip(keys, vals)),ignore_index=True)
-        vals = np.append(np.array(['NLRM',mi,'sigma',log_ml]),pm.summary(trace_NLR, ['sigma']).values[0])
-        results = results.append(dict(zip(keys, vals)),ignore_index=True)
-
-        # Append to models and traces
-        # models[mi] = NLR_model
-        # traces[mi] = trace_NLR
+        for key in ['k','m','sigma']:
+            vals = np.append(np.array(['NLRM',mi,key,ml]),pm.summary(trace_NLR, [key]).values[0])
+            results = results.append(dict(zip(keys, vals)),ignore_index=True)
 
         # Save model as pickle
         with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_model.pickle')), 'wb') as buff1:
@@ -166,30 +158,22 @@ for mi in tqdm(model_discharges.keys()):
             pickle.dump(trace_NLR, buff2)
 
         # Save results as csv
-        results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','_summary.csv')), index = False)
+        results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}summary.csv')), index = False)
 
         print('Results so far...')
-        print(results)
+        print(results.head(results.shape[0]))
         print()
+
+    NLR_model = None
+    trace_NLR = None
+    buff1 = None
+    buff2 = None
 
 # Set results df index
 results = results.set_index(['current_model','true_model','parameter'])
 
 # Save results as csv
 results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','_summary.csv')), index = False)
-
-# # Export models
-# for mi in tqdm(models.keys()):
-#     # Save model as pickle
-#     with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_model.pickle')), 'wb') as buff1:
-#         pickle.dump(models[mi], buff1)
-#
-# # Export traces
-# for mi in tqdm(traces.keys()):
-#     # Save trace as pickle
-#     with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_trace.pickle')), 'wb') as buff2:
-#         pickle.dump(traces[mi], buff2)
-
 
 print('Posterior computed and saved to...')
 print(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','')))

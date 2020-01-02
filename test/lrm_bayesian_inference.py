@@ -32,22 +32,22 @@ def print_model_specification(args):
 
 
 parser = argparse.ArgumentParser(description='Simulate discharge data and generate posterior samples using the linear reservoir model.')
-parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'simulations/linear_reservoir_simulation.csv',
+parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'simulations/linear_reservoir_simulation_monthly.csv',
                     help="filename of input dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'posterior_samples/linear_reservoir_samples.pickle',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'posterior_samples/linear_reservoir_samples_monthly.pickle',
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 10.0,
+parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 5.0,
                     help="k is constant reaction factor or response factor with unit T (must be positive) \
                         k ~ Uniform(0.01,kmax) (default: %(default)s)")
 parser.add_argument("-a", "--alpha",nargs='?',type=float,default = 2.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), alpha is the shape factor (default: %(default)s)")
-parser.add_argument("-b", "--beta",nargs='?',type=float,default = 40.0,
+parser.add_argument("-b", "--beta",nargs='?',type=float,default = 4.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), beta is the rate factor (default: %(default)s)")
-parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1000,
+parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 2000,
                     help="Number of posterior samples generated using choice of sampling method (default: %(default)s)")
-parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 100,
+parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 30,
                     help="Number of chains in posterior samples generation (default: %(default)s)")
 parser.add_argument("-r", "--randomseed",nargs='?',type=int,default = 24,
                     help="Random seed to be fixed when generating posterior samples (default: %(default)s)")
@@ -68,13 +68,12 @@ print(json.dumps(params,indent=2))
 print_model_specification(args)
 print()
 
+# sys.exit()
 
 '''  Import simulated data '''
-
 # Import simulated data from all three models
-model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation.csv'))
-model1data = pd.read_csv(os.path.join(rd,'data','output','simulations','nonlinear_reservoir_simulation.csv'))
-model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation.csv'))
+model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation_monthly.csv'))
+model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation_monthly.csv'))
 
 # Store net net_rainfall
 nr = model0data['net_rainfall'].values.tolist()
@@ -85,13 +84,13 @@ with open(os.path.join(rd,'data','output',args.input_filename.replace('.csv','_t
     true_params = json.load(f)
 true_args = Namespace(**true_params)
 
+print('n',n)
 # Store simulated discharges from three models
 model0q = model0data['discharge'].values.reshape(n,1)
-model1q = model1data['discharge'].values.reshape(n,1)
 model2q = model2data['discharge'].values.reshape(n,1)
 
 # Add model dischaged to dictionary
-model_discharges = {'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
+model_discharges = {'LRM':model0q,'HYMOD':model2q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
 
 ''' Compute posterior samples '''
 
@@ -106,12 +105,8 @@ def th_forward_model(param1):
     return th_states
 
 # Initialise dataframe to store parameter posteriors
-keys = ['current_model','true_model','parameter','log_marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5']
+keys = ['current_model','true_model','parameter','marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5']
 results = pd.DataFrame(columns=keys)
-
-# Initialise empty model and trace dictionaries
-models = {}
-traces = {}
 
 # Loop over simulated datasets and compute marginal
 for mi in tqdm(model_discharges.keys()):
@@ -127,16 +122,7 @@ for mi in tqdm(model_discharges.keys()):
         sigma = pm.Gamma('sigma',alpha=args.alpha,beta=args.beta)
 
         # Compute forward model
-        # try:
         forward = th_forward_model(k)
-        # except AssertionError:
-        #     _, _, tb = sys.exc_info()
-        #     traceback.print_tb(tb) # Fixed format
-        #     tb_info = traceback.extract_tb(tb)
-        #     filename, line, func, text = tb_info[-1]
-        #
-        #     print('An error occurred on line {} in statement {}'.format(line, text))
-        #     exit(1)
 
         # Compute likelihood
         Q_obs = pm.Normal('Q_obs', mu=forward, sigma=sigma, observed=model_discharges[mi])
@@ -148,20 +134,17 @@ for mi in tqdm(model_discharges.keys()):
         startsmc = [{'k':np.random.uniform(0.01,args.kmax,1)} for _ in range(args.nchains)]
 
         # Sample posterior
-        trace_LR = pm.sample(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc, step=pm.SMC())
+        trace_LR = pm.sample(args.nsamples, progressbar=True, start=startsmc, step=pm.SMC())
+        # trace_LR = pm.sample_smc(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc)
 
-        # Compute negative log marginal likelihood
-        log_ml = -np.log(LR_model.marginal_likelihood)
+        # Compute marginal likelihood
+        ml = LR_model.marginal_likelihood #-np.log(LR_model.marginal_likelihood)
+        print('Marginal Likelihood:',ml)
 
         # Append to results
-        vals = np.append(np.array(['LRM',mi,'k',log_ml]),pm.summary(trace_LR, ['k']).values[0])
-        results = results.append(dict(zip(keys, vals)),ignore_index=True)
-        vals = np.append(np.array(['LRM',mi,'sigma',log_ml]),pm.summary(trace_LR, ['sigma']).values[0])
-        results = results.append(dict(zip(keys, vals)),ignore_index=True)
-
-        # Append to models and traces
-        # models[mi] = LR_model
-        # traces[mi] = trace_LR
+        for key in ['k','sigma']:
+            vals = np.append(np.array(['LRM',mi,key,ml]),pm.summary(trace_LR, [key]).values[0])
+            results = results.append(dict(zip(keys, vals)),ignore_index=True)
 
         # Save model as pickle
         with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_model.pickle')), 'wb') as buff1:
@@ -172,31 +155,19 @@ for mi in tqdm(model_discharges.keys()):
             pickle.dump(trace_LR, buff2)
 
         # Save results as csv
-        results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','_summary.csv')), index = False)
+        results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}summary.csv')), index = False)
 
         print('Results so far...')
-        print(results)
+        print(results.head(results.shape[0]))
         print()
 
+    trace_LR['diverging'].sum()
 
 # Set results df index
 results = results.set_index(['current_model','true_model','parameter'])
 
 # Save results as csv
 results.to_csv(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','_summary.csv')), index = False)
-
-# # Export models
-# for mi in tqdm(models.keys()):
-#     # Save model as pickle
-#     with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_model.pickle')), 'wb') as buff1:
-#         pickle.dump(models[mi], buff1)
-#
-# # Export traces
-# for mi in tqdm(traces.keys()):
-#     # Save trace as pickle
-#     with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle',f'_{mi}data_trace.pickle')), 'wb') as buff2:
-#         pickle.dump(traces[mi], buff2)
-
 
 print('Posterior computed and saved to...')
 print(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','')))
