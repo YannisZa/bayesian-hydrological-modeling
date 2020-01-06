@@ -32,9 +32,9 @@ parser.add_argument("--simulate",dest='simulate', action='store_true',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to true")
 parser.add_argument("--no-simulate",dest='simulate', action='store_false',
                     help="sets flag for whether to simulate or use synthetic data for rainfall and evapotranspiration to false")
-parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'raw/road_data.csv',
+parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'raw/road_data_monthly.csv',
                     help="filename of input dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/nonlinear_reservoir_simulation.csv',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'simulations/nonlinear_reservoir_simulation_monthly.csv',
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
 parser.add_argument("-k", "--k",nargs='?',type=float,default = 1.1,
                     help="constant reaction factor or response factor with unit T (must be positive) (default: %(default)s)")
@@ -108,6 +108,7 @@ else:
     df = pd.read_csv(os.path.join(rd,'data','input',args.input_filename))
     rf = df['rainfall'].values.tolist()
     et = df['evapotranspiration'].values.tolist()
+    date = df['date'].values.tolist()
     # Compute
     nr = [max(rft - ett,minvalue) for rft, ett in zip(rf, et)]
 
@@ -138,7 +139,7 @@ Q_sim = np.asarray(q_flat).reshape(n,1) + np.random.randn(n,1)*args.sigma
 Q_sim = [max(minvalue,qsim[0]) for qsim in Q_sim]
 
 ''' Export data to file '''
-df = pd.DataFrame(list(zip(time,rf,et,nr,Q_sim)), columns =['time', 'rainfall','evapotranspiration','net_rainfall', 'discharge'])
+df = pd.DataFrame(list(zip(time,date,rf,et,nr,Q_sim)), columns =['time', 'date','rainfall','evapotranspiration','net_rainfall', 'discharge'])
 print(df.head(10))
 
 df.to_csv(os.path.join(rd,'data','output',args.output_filename),index=False)
