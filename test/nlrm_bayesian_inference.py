@@ -32,9 +32,9 @@ def print_model_specification(args):
 
 
 parser = argparse.ArgumentParser(description='Simulate discharge data and generate posterior samples using the nonlinear reservoir model.')
-parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'simulations/nonlinear_reservoir_simulation.csv',
+parser.add_argument("-i", "--input_filename",nargs='?',type=str,default = 'simulations/nonlinear_reservoir_simulation_monthly.csv',
                     help="filename of input dataframe (must end with .csv) (default: %(default)s)")
-parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'posterior_samples/nonlinear_reservoir_samples.pickle',
+parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'posterior_samples/nonlinear_reservoir_samples_monthly.pickle',
                     help="filename of output dataframe (must end with .csv) (default: %(default)s)")
 parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 5.0,
                     help="k is constant reaction factor or response factor with unit T (must be positive) \
@@ -48,7 +48,7 @@ parser.add_argument("-a", "--alpha",nargs='?',type=float,default = 2.0,
 parser.add_argument("-b", "--beta",nargs='?',type=float,default = 4.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), beta is the rate factor (default: %(default)s)")
-parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 1500,
+parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 2000,
                     help="Number of posterior samples generated using choice of sampling method (default: %(default)s)")
 parser.add_argument("-nc", "--nchains",nargs='?',type=int,default = 200,
                     help="Number of chains in posterior samples generation (default: %(default)s)")
@@ -76,9 +76,9 @@ print()
 '''  Import simulated data '''
 
 # Import simulated data from all three models
-model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation.csv'))
-model1data = pd.read_csv(os.path.join(rd,'data','output','simulations','nonlinear_reservoir_simulation.csv'))
-model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation.csv'))
+model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation_monthly.csv'))
+model1data = pd.read_csv(os.path.join(rd,'data','output','simulations','nonlinear_reservoir_simulation_monthly.csv'))
+model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation_monthly.csv'))
 
 # Store net rainfall
 nr = model0data['net_rainfall'].values.tolist()
@@ -139,10 +139,12 @@ for mi in tqdm(model_discharges.keys()):
         startsmc = [{'k':np.random.uniform(0.01,args.kmax,1),'m':np.random.uniform(1.01,args.mmax,1)} for _ in range(args.nchains)]
 
         # Sample posterior
-        trace_NLR = pm.sample(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc, step=pm.SMC())
+        # trace_NLR = pm.sample(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc, step=pm.SMC())
+        trace_NLR = pm.sample(args.nsamples, progressbar=True, start=startsmc, step=pm.SMC())
 
         # Compute negative marginal likelihood
         ml = NLR_model.marginal_likelihood #-np.log(NLR_model.marginal_likelihood)
+        print('Marginal likelihood',ml)
 
         # Append to results
         for key in ['k','m','sigma']:

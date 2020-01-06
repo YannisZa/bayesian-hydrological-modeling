@@ -73,6 +73,7 @@ print()
 '''  Import simulated data '''
 # Import simulated data from all three models
 model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation_monthly.csv'))
+model1data = pd.read_csv(os.path.join(rd,'data','output','simulations','nonlinear_reservoir_simulation_monthly.csv'))
 model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation_monthly.csv'))
 
 # Store net net_rainfall
@@ -87,10 +88,11 @@ true_args = Namespace(**true_params)
 print('n',n)
 # Store simulated discharges from three models
 model0q = model0data['discharge'].values.reshape(n,1)
+model1q = model1data['discharge'].values.reshape(n,1)
 model2q = model2data['discharge'].values.reshape(n,1)
 
 # Add model dischaged to dictionary
-model_discharges = {'LRM':model0q,'HYMOD':model2q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
+model_discharges = {'NLRM':model1q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
 
 ''' Compute posterior samples '''
 
@@ -160,8 +162,6 @@ for mi in tqdm(model_discharges.keys()):
         print('Results so far...')
         print(results.head(results.shape[0]))
         print()
-
-    trace_LR['diverging'].sum()
 
 # Set results df index
 results = results.set_index(['current_model','true_model','parameter'])

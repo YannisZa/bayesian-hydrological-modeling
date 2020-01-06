@@ -67,7 +67,7 @@ parser.add_argument("-nr", "--nreservoirs",nargs='?',type=int,default = 3,
 parser.add_argument("-sa", "--sigma_alpha",nargs='?',type=float,default = 2.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(sigma_alpha,sigma_beta), alpha is the shape factor -- default: %(default)s")
-parser.add_argument("-sb", "--sigma_beta",nargs='?',type=float,default = 40.0,
+parser.add_argument("-sb", "--sigma_beta",nargs='?',type=float,default = 4.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(sigma_alpha,sigma_beta), beta is the rate factor -- default: %(default)s")
 parser.add_argument("-ns", "--nsamples",nargs='?',type=int,default = 2000,
@@ -99,6 +99,7 @@ print()
 
 # Import simulated data from all three models
 model0data = pd.read_csv(os.path.join(rd,'data','output','simulations','linear_reservoir_simulation_monthly.csv'))
+model1data = pd.read_csv(os.path.join(rd,'data','output','simulations','nonlinear_reservoir_simulation_monthly.csv'))
 model2data = pd.read_csv(os.path.join(rd,'data','output','simulations','hymod_simulation_monthly.csv'))
 
 # Store rainfall and evapotranspiration
@@ -113,10 +114,11 @@ true_args = Namespace(**true_params)
 
 # Store simulated discharges from three models
 model0q = model0data['discharge'].values.reshape(n,1)
+model1q = model1data['discharge'].values.reshape(n,1)
 model2q = model2data['discharge'].values.reshape(n,1)
 
 # Add model dischaged to dictionary
-model_discharges = {'LRM':model0q,'HYMOD':model2q} #,'NLRM':model1q
+model_discharges = {'NLRM':model1q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
 
 ''' Compute posterior samples '''
 
@@ -142,11 +144,11 @@ for mi in tqdm(model_discharges.keys()):
     with pm.Model() as HYMOD_model:
 
         # Priors for unknown model parameters
-        cmax = pm.Uniform('cmax',lower=1.0,upper=args.c_max)
-        kfast = pm.Uniform('kfast',lower=0.01,upper=args.kfast_max)
-        kslow = pm.Uniform('kslow',lower=0.01,upper=args.kslow_max)
-        betak = pm.Gamma('betak', alpha=args.betak_alpha,beta=args.betak_beta)
-        alfa = pm.Beta('alfa',alpha=args.alfa_alpha,beta=args.alfa_beta)
+        cmax = pm.Uniform('cmax',lower=1.0,upper=args.c_max,transform=None)
+        kfast = pm.Uniform('kfast',lower=0.01,upper=args.kfast_max,transform=None)
+        kslow = pm.Uniform('kslow',lower=0.01,upper=args.kslow_max,transform=None)
+        betak = pm.Gamma('betak', alpha=args.betak_alpha,beta=args.betak_beta,transform=None)
+        alfa = pm.Beta('alfa',alpha=args.alfa_alpha,beta=args.alfa_beta,transform=None)
 
         # Priors for initial conditions and noise level
         sigma = pm.Gamma('sigma',alpha=args.sigma_alpha,beta=args.sigma_beta)
@@ -156,6 +158,7 @@ for mi in tqdm(model_discharges.keys()):
 
         # Compute likelihood
         Q_obs = pm.Normal('Q_obs', mu=forward, sigma=sigma, observed=model_discharges[mi])
+
 
         # Fix random seed
         np.random.seed(args.randomseed)
@@ -169,7 +172,8 @@ for mi in tqdm(model_discharges.keys()):
                     for _ in range(args.nchains)]
 
         # Sample posterior
-        trace_HYMOD = pm.sample(args.nsamples, progressbar=True, start=startsmc, step=pm.SMC())
+        # trace_HYMOD = pm.sample(args.nsamples, progressbar=True, start=startsmc, step=pm.SMC(),random_seed=args.randomseed)
+        trace_HYMOD = pm.sample(args.nsamples, progressbar=True, step=pm.SMC(),random_seed=args.randomseed)
 
         # Compute negative marginal likelihood
         ml = HYMOD_model.marginal_likelihood #-np.log(HYMOD_model.marginal_likelihood)
@@ -195,10 +199,6 @@ for mi in tqdm(model_discharges.keys()):
         print(results.head(results.shape[0]))
         print()
 
-    HYMOD_model = None
-    trace_HYMOD = None
-    buff1 = None
-    buff2 = None
 
 # Set results df index
 results = results.set_index(['current_model','true_model','parameter'])
