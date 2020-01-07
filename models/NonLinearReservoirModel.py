@@ -29,7 +29,7 @@ class NonLinearReservoirModel(object):
         values = odeint(rhs, self._q0, self._times, (parameters,),rtol=1e-6,atol=1e-6)
         nonzero_values = np.array([[max(0.0001,qsim[0])*factor] for qsim in values]).reshape(len(values),1)
 
-        return values
+        return nonzero_values
 
     def simulate(self, x, factor):
         return self._simulate(x, self._times,factor)
