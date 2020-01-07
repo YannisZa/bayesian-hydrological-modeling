@@ -18,11 +18,6 @@ import math
 import resource
 import traceback
 
-# Run with THEANO_FLAGS=mode=FAST_RUN
-
-# Set maximum number of open files
-# soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-# resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 def print_model_specification(args):
     print(f'k ~ Uniform(0.01,{args.kmax})')
@@ -92,7 +87,7 @@ model1q = model1data['discharge'].values.reshape(n,1)
 model2q = model2data['discharge'].values.reshape(n,1)
 
 # Add model dischaged to dictionary
-model_discharges = {'NLRM':model1q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
+model_discharges = {'LRM':model0q,'NLRM':model1q,'HYMOD':model2q} #{'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
 
 ''' Compute posterior samples '''
 

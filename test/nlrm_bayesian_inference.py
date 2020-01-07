@@ -17,15 +17,9 @@ import json
 import math
 import resource
 
-# Run with THEANO_FLAGS=mode=FAST_RUN
-
-# Set maximum number of open files
-# soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-# resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
-
 def print_model_specification(args):
     print(f'k ~ Uniform(0.01,{args.kmax})')
-    print(f'm ~ Uniform(1.01,{args.mmax})')
+    print(f'm ~ TruncatedNormal({args.mmu},{args.msd})')
     print(f'sigma ~ Gamma({args.alpha},{args.beta})')
     print('Q(t) ~ Normal(Q(q0,t),sigma)')
     print()
@@ -39,9 +33,12 @@ parser.add_argument("-o", "--output_filename",nargs='?',type=str,default = 'post
 parser.add_argument("-kmax", "--kmax",nargs='?',type=float,default = 5.0,
                     help="k is constant reaction factor or response factor with unit T (must be positive) \
                         k ~ Uniform(0.01,kmax) (default: %(default)s)")
-parser.add_argument("-mmax", "--mmax",nargs='?',type=float,default = 2.0,
+parser.add_argument("-mmu", "--mmu",nargs='?',type=float,default = 1.5,
                     help="m is constant reaction factor or response factor with unit T (must be positive) \
-                        m ~ Uniform(1.01,mmax) (default: %(default)s)")
+                        m ~ TruncatedNormal(mmu,msd) mmu is the mean (default: %(default)s)")
+parser.add_argument("-msd", "--msd",nargs='?',type=float,default = 0.1,
+                    help="m is constant reaction factor or response factor with unit T (must be positive) \
+                        m ~ TruncatedNormal(mmu,msd) msd is the standard deviation (default: %(default)s)")
 parser.add_argument("-a", "--alpha",nargs='?',type=float,default = 2.0,
                     help="Hyperparameter for Gaussian noise N(0,s) added to discharge  \
                     sigma ~ Gamma(alpha,beta), alpha is the shape factor (default: %(default)s)")
@@ -95,7 +92,7 @@ model1q = model1data['discharge'].values.reshape(n,1)
 model2q = model2data['discharge'].values.reshape(n,1)
 
 # Add model dischaged to dictionary
-model_discharges = {'LRM':model0q,'NLRM':model1q,'HYMOD':model2q}
+model_discharges = {'LRM':model0q,'NLRM':model1q,'HYMOD':model2q} # 'LRM':model0q,'NLRM':model1q,'HYMOD':model2q
 
 ''' Compute posterior samples '''
 
@@ -110,7 +107,8 @@ def th_forward_model(param1,param2):
     return th_states
 
 # Initialise dataframe to store parameter posteriors
-results = pd.DataFrame(columns=['current_model','true_model','parameter','marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5'])
+keys = ['current_model','true_model','parameter','marginal_likelihood','mean', 'sd', 'mc_error', 'hpd_2.5', 'hpd_97.5']
+results = pd.DataFrame(columns=keys)
 
 # Loop over simulated datasets and compute marginal
 for mi in tqdm(model_discharges.keys()):
@@ -121,7 +119,7 @@ for mi in tqdm(model_discharges.keys()):
 
         # Priors for unknown model parameters
         k = pm.Uniform('k', lower=0.01, upper=args.kmax)
-        m = pm.Uniform('m', lower=1.01, upper=args.mmax)
+        m = pm.TruncatedNormal('m', lower=0.01, mu=args.mmu,sigma=args.msd)
 
         # Priors for initial conditions and noise level
         sigma = pm.Gamma('sigma',alpha=args.alpha,beta=args.beta)
@@ -132,22 +130,22 @@ for mi in tqdm(model_discharges.keys()):
         # Compute likelihood
         Q_obs = pm.Normal('Q_obs', mu=forward, sigma=sigma, observed=model_discharges[mi])
 
-        # Fix random seed
-        np.random.seed(args.randomseed)
-
-        # Initial points for each of the chains
-        startsmc = [{'k':np.random.uniform(0.01,args.kmax,1),'m':np.random.uniform(1.01,args.mmax,1)} for _ in range(args.nchains)]
+        # # Fix random seed
+        # np.random.seed(args.randomseed)
+        #
+        # # Initial points for each of the chains
+        # startsmc = [{'k':np.random.uniform(0.01,args.kmax,1),'m':np.random.uniform(1.01,args.mmax,1)} for _ in range(args.nchains)]
 
         # Sample posterior
         # trace_NLR = pm.sample(args.nsamples, progressbar=True, chains=args.nchains, start=startsmc, step=pm.SMC())
-        trace_NLR = pm.sample(args.nsamples, progressbar=True, start=startsmc, step=pm.SMC())
+        trace_NLR = pm.sample(args.nsamples, progressbar=True, step=pm.SMC(),random_seed=args.randomseed)
 
         # Compute negative marginal likelihood
         ml = NLR_model.marginal_likelihood #-np.log(NLR_model.marginal_likelihood)
         print('Marginal likelihood',ml)
 
         # Append to results
-        for key in ['k','m','sigma']:
+        for key in ['k','sigma']:
             vals = np.append(np.array(['NLRM',mi,key,ml]),pm.summary(trace_NLR, [key]).values[0])
             results = results.append(dict(zip(keys, vals)),ignore_index=True)
 
@@ -165,11 +163,6 @@ for mi in tqdm(model_discharges.keys()):
         print('Results so far...')
         print(results.head(results.shape[0]))
         print()
-
-    NLR_model = None
-    trace_NLR = None
-    buff1 = None
-    buff2 = None
 
 # Set results df index
 results = results.set_index(['current_model','true_model','parameter'])
