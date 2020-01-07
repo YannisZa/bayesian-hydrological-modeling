@@ -32,4 +32,4 @@ class LinearReservoirModel(object):
         return nonzero_values
 
     def simulate(self, x, factor):
-        return self._simulate(x, self._times, factor)
+        return self._simulate(x, self._times,factor)
