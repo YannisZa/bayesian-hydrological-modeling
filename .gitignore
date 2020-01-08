@@ -1,11 +1,11 @@
 *.nc
 *.csv
-*.ipynb
 *.json
 *.pyc
 *.pickle
 *.DS_Store
 *.png
+*-checkpoint.ipynb
 
 .python-version
 
