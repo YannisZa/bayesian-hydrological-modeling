@@ -3,11 +3,6 @@ numpy
 pandas
 jupyter
 ipykernel
-cython
-fiona
-shapely
-xarray>=0.12.0
-netCDF4
 scipy
 matplotlib
 sympy
@@ -15,6 +10,5 @@ tqdm
 argparse
 pymc3
 Theano
-arviz
 jupyter
 ipykernel
