@@ -1,11 +1,13 @@
 *.nc
-*.csv
 *.json
 *.pyc
 *.pickle
 *.DS_Store
 *.png
 *-checkpoint.ipynb
+**/backup/
+**/data/output/
+**/data/input/synthetic/
 
 .python-version
 
