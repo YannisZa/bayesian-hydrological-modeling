@@ -51,9 +51,9 @@ params = vars(args)
 
 # Get current working directory and project root directory
 cwd = os.getcwd()
-rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0])
-if not rd.endswith('fibe2-mini-project'):
-    rd = os.path.join(cwd.split('fibe2-mini-project/', 1)[0],'fibe2-mini-project')
+rd = os.path.join(cwd.split('bayesian-hydrological-modeling/', 1)[0])
+if not rd.endswith('bayesian-hydrological-modeling'):
+    rd = os.path.join(cwd.split('bayesian-hydrological-modeling/', 1)[0],'bayesian-hydrological-modeling')
 
 # Export model priors
 with open(os.path.join(rd,'data','output',args.output_filename.replace('.pickle','_priors.json')), 'w') as f:
