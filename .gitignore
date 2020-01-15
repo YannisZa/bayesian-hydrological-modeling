@@ -8,7 +8,7 @@
 **/backup/
 **/data/output/
 **/data/input/synthetic/
-
+**/examples/
 .python-version
 
 **/libgpuarray
