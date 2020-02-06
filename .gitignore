@@ -1,3 +1,4 @@
+# Files
 *.nc
 *.json
 *.pyc
@@ -5,12 +6,14 @@
 *.DS_Store
 *.png
 *-checkpoint.ipynb
+*.python-version
+*.swp
+
+# Directories
 **/backup/
 **/data/output/
 **/data/input/synthetic/
 **/examples/
-.python-version
-
 **/libgpuarray
 **/uoapi
 **/hydrology-models
