@@ -48,9 +48,9 @@ def import_shapefile(path):
 # Define static variables
 
 # API key
-api_key = '70bt3lgir8zn9sqvtx09t9g9xreaxtae5jjgbkcqrdthho9r5c5p2grk071jba58t4gu6s30ciohd924r6oc5ylm4x'
+api_key = ''
 # Current working directory
-cwd = '/Users/Yannis/Desktop/Cambridge/MRes/Mini-project/data'
+cwd = ''
 # Data theme
 theme = 'Weather'
 # Start and end times for data search
