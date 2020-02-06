@@ -3,8 +3,6 @@ import pandas as pd
 import requests
 import json
 
-# Define API key
-APIkey = 'ed84efb9-66bb-4d18-bd73-86a132112a60'
 # Stations url
 stations = 'val/wxfcs/all/json/sitelist'
 
