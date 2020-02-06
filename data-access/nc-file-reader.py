@@ -3,7 +3,7 @@ import xarray as xr
 import os
 
 # path to file
-path = '/Users/Yannis/Desktop/Cambridge/MRes/Mini-project/data/FF-HadRM3-PPE/'
+path = ''
 file = 'FF-HadRM3-afgcx-PE-1980-2009.nc'
 #'era-5_2018.grib'
 filepath = os.path.join(path,file)
