@@ -3,7 +3,7 @@ import xarray as xr
 import os
 
 # path to file
-path = '/Users/Yannis/Desktop/Cambridge/MRes/Mini-project/data/ERA/'
+path = ''
 file = 'europe_evaporation_jan2018.grib'
 #'era-5_2018.grib'
 filepath = os.path.join(path,file)
